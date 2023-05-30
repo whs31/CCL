@@ -12,9 +12,9 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOMOC ON)
 
 find_package(QT NAMES Qt5 Qt6 REQUIRED COMPONENTS Core)
-find_package(QT${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core)
-    Positioning
+find_package(QT${QT_VERSION_MAJOR} REQUIRED COMPONENTS 
     Core
+    Positioning
 )
     
 if(${LPVL_TESTS_ENABLED})
