@@ -19,14 +19,14 @@ namespace CCL
             Orthodrom(const QGeoCoordinate& first, const QGeoCoordinate& second);
             Orthodrom();
 
-            auto get() const -> QList<QVariant>;
-            void set(const QGeoCoordinate& first, const QGeoCoordinate& second);
+            auto get() const noexcept -> QList<QVariant>;
+            void set(const QGeoCoordinate& first, const QGeoCoordinate& second) noexcept;
 
-            double latitudeAt(double longitude);
+            double latitudeAt(double longitude) const noexcept;
 
         private:
-            void distribute(uint16_t spacing);
-            double distance() const;
+            void distribute(uint16_t spacing) noexcept;
+            double distance() const noexcept;
 
         private:
             double a1, a2;

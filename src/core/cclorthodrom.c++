@@ -20,16 +20,15 @@ Orthodrom::Orthodrom()
     , second({0, 0})
 {}
 
-QList<QVariant> Orthodrom::get() const
+QList<QVariant> Orthodrom::get() const noexcept
 {
-    if(sin(first.longitude() - second.longitude())){
+    if(sin(first.longitude() - second.longitude()))
         return path;
-    }
 
     return { QVariant::fromValue(first), QVariant::fromValue(second) };
 }
 
-void Orthodrom::set(const QGeoCoordinate& a, const QGeoCoordinate& b)
+void Orthodrom::set(const QGeoCoordinate& a, const QGeoCoordinate& b) noexcept
 {
     first = a;
     second = b;
@@ -40,14 +39,14 @@ void Orthodrom::set(const QGeoCoordinate& a, const QGeoCoordinate& b)
     this->distribute(10);
 }
 
-double Orthodrom::latitudeAt(double longitude)
+double Orthodrom::latitudeAt(double longitude) const noexcept
 {
     double angle = atan(a1 * sin((longitude - first.longitude()) * d2r)
                         + a2 * sin((second.longitude() - longitude) * d2r));
     return angle * 180 / M_PI;
 }
 
-void Orthodrom::distribute(uint16_t spacing)
+void Orthodrom::distribute(uint16_t spacing) noexcept
 {
     if (qIsNaN(a1) or qIsNaN(a2))
         return;
@@ -55,25 +54,26 @@ void Orthodrom::distribute(uint16_t spacing)
     path << QVariant::fromValue(second);
     double az = first.azimuthTo(second);
     double d = distance();
-    while (d - spacing > 0){
+
+    while (d - spacing > 0)
+    {
         QGeoCoordinate tmp = first.atDistanceAndAzimuth(d * 1000, az);
         path << QVariant::fromValue(QGeoCoordinate(latitudeAt(tmp.longitude()), tmp.longitude(), 0));
         d -= spacing;
     }
+
     QGeoCoordinate tmp = first.atDistanceAndAzimuth(d, az);
     if(tmp.longitude() - second.longitude() != 0)
         path << QVariant::fromValue(QGeoCoordinate(latitudeAt(tmp.longitude()), tmp.longitude(), 0));
     else
-        path <<  QVariant::fromValue(tmp);
-
+        path << QVariant::fromValue(tmp);
 }
 
-double Orthodrom::distance() const
+double Orthodrom::distance() const noexcept
 {
-    double tmp = sin(first.latitude() * d2r) * sin(second.latitude() * d2r) +
-                 cos(first.latitude() * d2r) * cos(second.latitude() * d2r)
-                     * cos((second.longitude() - first.longitude()) * d2r);
-    double angle = acos(tmp) * 60 * 180 / M_PI;
-    return angle * 1.853;
+    double tmp = sin(first.latitude() * d2r) * sin(second.latitude() * d2r)
+                 + cos(first.latitude() * d2r) * cos(second.latitude() * d2r)
+                 * cos((second.longitude() - first.longitude()) * d2r);
 
+    return acos(tmp) * 60 * 180 / M_PI * 1.853;
 }

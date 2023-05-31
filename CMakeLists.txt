@@ -26,10 +26,12 @@ include_directories(src include)
 set(CCL_CORE
     src/global/cclglobal.h
     src/core/cclorthodrom.h src/core/cclorthodrom.c++
+    src/core/cclgeomath.h src/core/cclgeomath.c++
 )
 
 set(CCL_CORE_INCLUDE
-
+    include/CCL/Geomath
+    include/CCL/Orthodrom
 )
 
 set(SRC
