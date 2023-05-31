@@ -25,6 +25,7 @@ include_directories(src include)
 
 set(CCL_CORE
     src/global/cclglobal.h
+    src/core/cclorthodrom.h src/core/cclorthodrom.c++
 )
 
 set(CCL_CORE_INCLUDE
