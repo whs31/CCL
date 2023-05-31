@@ -1,7 +1,10 @@
 #include "cclgeomath.h"
 #include <QtCore/QPointF>
+#include <QtCore/QDebug>
 #include <QtPositioning/QGeoCoordinate>
 #include <cmath>
+
+__attribute__((constructor)) static void describe() { qInfo() << "<CCL> Library loaded. Version 0.1"; }
 
 constexpr const double MAP_SCALE_RATIO = 156'543.03392;
 
