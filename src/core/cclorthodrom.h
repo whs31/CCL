@@ -7,13 +7,12 @@
 
 #pragma once
 
-#include <global/cclglobal.h>
 #include <QtCore/QVariantList>
 #include <QtPositioning/QGeoCoordinate>
 
 namespace CCL
 {
-    class CCL_EXPORT Orthodrom
+    class Orthodrom
     {
         public:
             Orthodrom(const QGeoCoordinate& first, const QGeoCoordinate& second);

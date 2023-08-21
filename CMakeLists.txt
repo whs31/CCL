@@ -2,7 +2,6 @@ cmake_minimum_required (VERSION 3.15)
 
 project(CCL LANGUAGES CXX)
 
-set(CCL_COMPILE_TO_STATIC FALSE)
 set(CCL_TESTS_ENABLED FALSE)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -17,14 +16,13 @@ find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS
     Positioning
 )
     
-if(${LPVL_TESTS_ENABLED})
+if(${CCL_TESTS_ENABLED})
     find_package(GTest)
 endif()
 
 include_directories(src include)
 
 set(CCL_CORE
-    src/global/cclglobal.h
     src/core/cclorthodrom.h src/core/cclorthodrom.c++
     src/core/cclgeomath.h src/core/cclgeomath.c++
 )
@@ -38,14 +36,7 @@ set(SRC
     ${CCL_CORE} ${CCL_CORE_INCLUDE}
 )
 
-message("Compiling to static status: ${CCL_COMPILE_TO_STATIC}")
-if(${CCL_COMPILE_TO_STATIC})
-    add_library(${PROJECT_NAME} ${SRC})
-    target_compile_definitions (${PROJECT_NAME} PRIVATE CCL_LIBRARY CCL_STATIC)
-else()
-    add_library(${PROJECT_NAME} SHARED ${SRC} )
-    target_compile_definitions (${PROJECT_NAME} PRIVATE CCL_LIBRARY)
-endif()
+add_library(${PROJECT_NAME} ${SRC})
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt${QT_VERSION_MAJOR}::Core
@@ -67,8 +58,3 @@ if(${CCL_TESTS_ENABLED})
 endif()
 
 target_include_directories(${PROJECT_NAME} PUBLIC include src)
-
-set_target_properties (${PROJECT_NAME} PROPERTIES
-    OUTPUT_NAME "ccl"
-    PREFIX "lib"
-)
