@@ -59,4 +59,25 @@ namespace CCL
              static_cast<float>(k * cos_lat * sin(TO_RADIANS * coord.longitude() - TO_RADIANS * origin.longitude()) * EARTH_RADIUS),
              static_cast<float>(-(coord.altitude() - origin.altitude())) };
   }
+
+  QGeoCoordinate ned2geo(const NEDPoint& ned, const QGeoCoordinate& origin) noexcept
+  {
+    double c = std::hypot(ned.x / EARTH_RADIUS, ned.y / EARTH_RADIUS);
+    double ref_sin_lat = std::sin(origin.latitude() * TO_RADIANS);
+    double ref_cos_lat = std::cos(origin.latitude() * TO_RADIANS);
+    double lat_rad, lon_rad;
+
+    if(std::fabs(c) > std::numeric_limits<double>::epsilon())
+    {
+      lat_rad = asin(std::cos(c) * ref_sin_lat + (ned.x / EARTH_RADIUS * std::sin(c) * ref_cos_lat) / c);
+      lon_rad = (origin.longitude() * TO_RADIANS + atan2(ned.y / EARTH_RADIUS * std::sin(c),
+                                                         c * ref_cos_lat * std::cos(c) - ned.x / EARTH_RADIUS * ref_sin_lat * std::sin(c)));
+    }
+    else
+    {
+      lat_rad = origin.latitude() * TO_RADIANS;
+      lon_rad = origin.longitude() * TO_RADIANS;
+    }
+    return { TO_DEGREES * lat_rad, TO_DEGREES * lon_rad, -ned.z + origin.altitude() };
+  }
 } // CCL

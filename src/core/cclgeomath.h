@@ -27,4 +27,5 @@ namespace CCL
     double mqiZoomLevel(double latitude, float meters_per_pixel = 1) noexcept;
     QPointF geo2webmercator(const QGeoCoordinate& geo, uint8_t zoom = 19) noexcept;
     NEDPoint geo2NED(const QGeoCoordinate& coord, const QGeoCoordinate& origin) noexcept;
+    QGeoCoordinate ned2geo(const NEDPoint& ned, const QGeoCoordinate& origin) noexcept;
 } // CCL

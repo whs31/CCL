@@ -6,24 +6,114 @@
  * ---------------------------------------------------------------------- */
 
 #include "traversealgorithms.h"
-#include <deque>
 #include <vector>
+#include <stdexcept>
+#include <cmath>
 #include <QtCore/QPointF>
+#include <QtCore/QLineF>
+#include <QtCore/QRectF>
+#include <QtGui/QPolygonF>
 #include <QtPositioning/QGeoPath>
 #include <QtPositioning/QGeoPolygon>
+#include "CCL/Geomath"
 
 #define in :
 
-using std::deque;
 using std::vector;
 
 namespace CCL::Traverse
 {
+  namespace Internal
+  {
+    QPointF rotateTraversePoint(const QPointF& point, const QPointF& origin, float angle) noexcept
+    {
+      return {((point.x() - origin.x()) * std::cos(M_PI / 180.0f * (-angle)))
+              - ((point.y() - origin.y()) * std::sin(M_PI / 180.0f * (-angle))) + origin.x(),
+          ((point.x() - origin.x()) * std::sin(M_PI / 180.0f * (-angle)))
+          + ((point.y() - origin.y()) * std::cos(M_PI / 180.0f * (-angle))) + origin.y()};
+    }
+
+    float clampTraverseGridAngle(float angle) noexcept
+    {
+      if(angle > 90.0f)
+        angle -= 180.0f;
+      else if(angle < -90.0f)
+        angle += 180.0f;
+      return angle;
+    }
+
+    deque<QLineF> findIntersectionWithPolygon(const deque<QLineF>& lines, const QPolygonF& poly) noexcept
+    {
+      deque<QLineF> ret;
+
+      for(const QLineF& line in lines)
+      {
+        deque<QPointF> intersections;
+        for(int i = 0; i < poly.count() - 1; i++)
+        {
+          QPointF p;
+          QLineF polygon_line = QLineF(poly[i], poly[i + 1]);
+          if(line.intersects(polygon_line, &p) == QLineF::BoundedIntersection
+             and not std::count(intersections.cbegin(), intersections.cend(), p))
+            intersections.push_back(p);
+        }
+
+        if(intersections.size() > 1)
+        {
+          QPointF f, s;
+          float cmd = 0;
+          for(const QPointF& first in intersections)
+          {
+            for(const QPointF& second in intersections)
+            {
+              auto nmd = static_cast<float>(QLineF(first, second).length());
+              if(nmd > cmd)
+              {
+                f = first;
+                s = second;
+                cmd = nmd;
+              }
+            }
+          }
+          ret.emplace_back(f, s);
+        }
+      }
+      return ret;
+    }
+
+    deque<QLineF> adjustLineDirections(const deque<QLineF>& lines)
+    {
+      deque<QLineF> ret;
+      float a = 0;
+      bool first = true;
+      for(const QLineF& line in lines)
+      {
+        QLineF adj;
+        if(first)
+        {
+          a = static_cast<float>(line.angle());
+          first = false;
+        }
+        if(std::abs(line.angle() - a) > 1.0)
+        {
+          adj.setP1(line.p2());
+          adj.setP2(line.p1());
+        }
+        else
+          adj = line;
+        ret.push_back(adj);
+      }
+      return ret;
+    }
+  } // Internal
 
   QGeoPath buildTraverse(const QGeoPolygon& poly, float angle, float spacing, float turn_around, Entry entry)
   {
     if(poly.isEmpty())
       return {};
+
+    if(spacing < 0.5f)
+      throw std::invalid_argument("CCL.Traverse.build: spacing is too low (< 0.5)");
 
     QGeoPath ret;
 
@@ -40,106 +130,49 @@ namespace CCL::Traverse
       bool lf = false;
       for(const QGeoCoordinate& point in poly.path())
       {
-        float x, y, d;
-        auto vert = point;
+        NEDPoint ned;
         if(lf)
-          convertGeoCoordinateToNED(vert, tg_origin, &y, &x, &d);
+          ned = geo2NED(point, tg_origin);
         else
-        {
           lf = true;
-          x = y = 0;
-        }
+        poly_points.emplace_back(ned.x, ned.y);
+      }
+
+      float grid_angle = Internal::clampTraverseGridAngle(angle);
+      QPolygonF polygon;
+      for(const QPointF& point in poly_points)
+        polygon << point;
+      polygon << poly_points.front();
+
+      QRectF bounding_rect = polygon.boundingRect();
+      deque<QLineF> lines;
+      float max_w = static_cast<float>(std::max(bounding_rect.width(), bounding_rect.height()) + 2000.0f);
+      float transect_x = static_cast<float>(bounding_rect.center().x() - max_w / 2);
+      while(transect_x < transect_x + max_w)
+      {
+        lines.emplace_back(Internal::rotateTraversePoint({transect_x, bounding_rect.center().y() - max_w / 2}, bounding_rect.center(), grid_angle),
+                           Internal::rotateTraversePoint({transect_x, bounding_rect.center().y() + max_w / 2}, bounding_rect.center(), grid_angle));
+        transect_x += spacing;
+      }
+
+      deque<QLineF> intersection_lines = Internal::findIntersectionWithPolygon(lines, polygon);
+      if(intersection_lines.size() < 2)
+      {
+        lines.clear();
+        lines.push_back(QLineF(lines.front()).translated(bounding_rect.center() - lines.front().pointAt(0.5)));
+        intersection_lines = Internal::findIntersectionWithPolygon(lines, polygon);
+      }
+
+      deque<QLineF> result = Internal::adjustLineDirections(intersection_lines);
+      for(const QLineF& line in result)
+      {
+        QGeoCoordinate coord;
+        deque<QGeoCoordinate> transect;
+        transect.emplace_back(geo2NED())
       }
     }
 
-      else {
-        // Convert polygon to NED
 
-        QList<QPointF> polygonPoints;
-        QGeoCoordinate tangentOrigin = polygon.coordinateAt(0);
-        //qInfo() << Q_FUNC_INFO << "tangentOrigin" << tangentOrigin;
-        for (int i = 0; i < polygon.size(); i++) {
-          qreal y, x, down;
-          QGeoCoordinate vertex = polygon.coordinateAt(i);
-          //qInfo() << Q_FUNC_INFO << vertex;
-          if (i == 0) {
-            // This avoids a nan calculation that comes out of convertGeoToNed
-            x = y = 0;
-          } else {
-            convertGeoToNed(vertex, tangentOrigin, &y, &x, &down);
-          }
-          polygonPoints += QPointF(x, y);
-          //qInfo() << Q_FUNC_INFO << polygonPoints.last().x() << polygonPoints.last().y();
-        }
-
-        // Generate transects
-
-        qreal gridAngle = angle;
-        qreal gridSpacing = spacing;
-        if (gridSpacing < 0.5) {
-          // We can't let gridSpacing get too small otherwise we will end up with too many transects.
-          // So we limit to 0.5 meter spacing as min and set to huge value which will cause a single
-          // transect to be added.
-          gridSpacing = 100000;
-        }
-
-        gridAngle = clampGridAngle90(gridAngle);
-        //gridAngle += refly ? 90 : 0;
-        //qInfo() << Q_FUNC_INFO << "_rebuildTransectsPhase1 Clamped grid angle" << gridAngle;
-        //qInfo() << Q_FUNC_INFO << "_rebuildTransectsPhase1 gridSpacing:gridAngle:refly" << gridSpacing << gridAngle/* << refly*/;
-
-        // Convert polygon to bounding rect
-
-        QPolygonF polygon;
-        for (int i = 0; i < polygonPoints.count(); i++) {
-          //qInfo() << Q_FUNC_INFO << "Vertex" << polygonPoints[i];
-          polygon << polygonPoints[i];
-        }
-        polygon << polygonPoints[0];
-        QRectF boundingRect = polygon.boundingRect();
-        QPointF boundingCenter = boundingRect.center();
-        //qInfo() << Q_FUNC_INFO << "Bounding rect" << boundingRect.topLeft().x() << boundingRect.topLeft().y() << boundingRect.bottomRight().x() << boundingRect.bottomRight().y();
-
-        // Create set of rotated parallel lines within the expanded bounding rect. Make the lines larger than the
-        // bounding box to guarantee intersection.
-
-        QList<QLineF> lineList;
-
-        // Transects are generated to be as long as the largest width/height of the bounding rect plus some fudge factor.
-        // This way they will always be guaranteed to intersect with a polygon edge no matter what angle they are rotated to.
-        // They are initially generated with the transects flowing from west to east and then points within the transect north to south.
-        qreal maxWidth = qMax(boundingRect.width(), boundingRect.height()) + 2000.0;
-        qreal halfWidth = maxWidth / 2.0;
-        qreal transectX = boundingCenter.x() - halfWidth;
-        qreal transectXMax = transectX + maxWidth;
-        while (transectX < transectXMax) {
-          qreal transectYTop = boundingCenter.y() - halfWidth;
-          qreal transectYBottom = boundingCenter.y() + halfWidth;
-
-          lineList += QLineF(rotatePoint(QPointF(transectX, transectYTop), boundingCenter, gridAngle), rotatePoint(QPointF(transectX, transectYBottom), boundingCenter, gridAngle));
-          transectX += gridSpacing;
-        }
-
-        // Now intersect the lines with the polygon
-        QList<QLineF> intersectLines;
-        intersectLinesWithPolygon(lineList, polygon, intersectLines);
-
-        // Less than two transects intersected with the polygon:
-        //      Create a single transect which goes through the center of the polygon
-        //      Intersect it with the polygon
-        if (intersectLines.count() < 2) {
-          QLineF firstLine = lineList.first();
-          QPointF lineCenter = firstLine.pointAt(0.5);
-          QPointF centerOffset = boundingCenter - lineCenter;
-          firstLine.translate(centerOffset);
-          lineList.clear();
-          lineList.append(firstLine);
-          intersectLines = lineList;
-          intersectLinesWithPolygon(lineList, polygon, intersectLines);
-        }
-
-        // Make sure all lines are going the same direction. Polygon intersection leads to lines which
-        // can be in varied directions depending on the order of the intesecting sides.
         QList<QLineF> resultLines;
         adjustLineDirection(intersectLines, resultLines);
 
@@ -240,7 +273,6 @@ namespace CCL::Traverse
         }
 
         result.setPath(resultPath);
-      }
 
   }
 } // CCL::Traverse
