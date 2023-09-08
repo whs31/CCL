@@ -9,13 +9,16 @@
 
 #include <deque>
 
-using std::deque;
-
 class QPointF;
 class QPolygonF;
 class QLineF;
 class QGeoPath;
 class QGeoPolygon;
+class QGeoCoordinate;
+
+using std::deque;
+using CoordinateArray1D = deque<QGeoCoordinate>;
+using CoordinateArray2D = deque<CoordinateArray1D>;
 
 namespace CCL::Traverse
 {
@@ -37,5 +40,8 @@ namespace CCL::Traverse
     float clampTraverseGridAngle(float angle) noexcept;
     deque<QLineF> findIntersectionWithPolygon(const deque<QLineF>& lines, const QPolygonF& poly) noexcept;
     deque<QLineF> adjustLineDirections(const deque<QLineF>& lines);
+    void adjustTransects(CoordinateArray2D& transects, Entry entry) noexcept;
+    void reverseInternalTransectPoints(CoordinateArray2D& t) noexcept;
+    void reverseTransectOrder(CoordinateArray2D& t) noexcept;
   } // Internal
 } // CCL::Traverse

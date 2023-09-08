@@ -105,6 +105,30 @@ namespace CCL::Traverse
       }
       return ret;
     }
+
+    void adjustTransects(CoordinateArray2D& transects, Entry entry) noexcept
+    {
+      if(transects.empty())
+        return;
+
+      if(entry == Entry::BottomLeft or entry == Entry::BottomRight)
+        reverseInternalTransectPoints(transects);
+      if(entry == Entry::TopRight or entry == Entry::BottomRight)
+        reverseTransectOrder(transects);
+    }
+
+    void reverseInternalTransectPoints(CoordinateArray2D& t) noexcept
+    {
+      for(auto& transect in t)
+      {
+        deque<QGeoCoordinate> q;
+        for(int i = (int)transect.size() - 1; i >= 0; i--)
+          q.push_back(transect[i]);
+        transect = q;
+      }
+    }
+
+    void reverseTransectOrder(CoordinateArray2D& t) noexcept { std::reverse(t.begin(), t.end()); }
   } // Internal
 
   QGeoPath buildTraverse(const QGeoPolygon& poly, float angle, float spacing, float turn_around, Entry entry)
@@ -164,115 +188,51 @@ namespace CCL::Traverse
       }
 
       deque<QLineF> result = Internal::adjustLineDirections(intersection_lines);
+      CoordinateArray2D transects;
       for(const QLineF& line in result)
       {
-        QGeoCoordinate coord;
         deque<QGeoCoordinate> transect;
-        transect.emplace_back(geo2NED())
+        transect.emplace_back(ned2geo({static_cast<float>(line.p1().y()), static_cast<float>(line.p1().x()), 0},
+                                      tg_origin));
+        transect.emplace_back(ned2geo({static_cast<float>(line.p2().y()), static_cast<float>(line.p2().x()), 0},
+                                      tg_origin));
+        transects.push_back(transect);
       }
+
+      Internal::adjustTransects(transects, entry);
+      bool rv = false;
+      for(CoordinateArray1D& transect in transects)
+      {
+        CoordinateArray1D transect_vertices = transect;
+        if(rv)
+        {
+          rv = false;
+          std::reverse(transect_vertices.begin(), transect_vertices.end());
+        }
+        else
+          rv = true;
+        transect = transect_vertices;
+      }
+      QList<QGeoCoordinate> result_path;
+      for(CoordinateArray1D& transect in transects)
+      {
+        double tad = turn_around;
+        if(tad != 0)
+        {
+          double azimuth = transect.front().azimuthTo(transect[1]);
+          transect.front() = transect.front().atDistanceAndAzimuth(-tad, azimuth);
+          transect.front().setAltitude(qQNaN());
+          transect[1] = transect[1].atDistanceAndAzimuth(tad, azimuth);
+          transect[1].setAltitude(qQNaN());
+        }
+
+        for(const QGeoCoordinate& coordinate in transect)
+          result_path.push_back(coordinate);
+      }
+
+      ret.setPath(result_path);
     }
 
-
-        QList<QLineF> resultLines;
-        adjustLineDirection(intersectLines, resultLines);
-
-        // Convert from NED to Geo
-        QList<QList<QGeoCoordinate>> transects;
-        for (const QLineF& line : resultLines) {
-          QGeoCoordinate          coord;
-          QList<QGeoCoordinate>   transect;
-
-          convertNedToGeo(line.p1().y(), line.p1().x(), 0, tangentOrigin, &coord);
-          transect.append(coord);
-          convertNedToGeo(line.p2().y(), line.p2().x(), 0, tangentOrigin, &coord);
-          transect.append(coord);
-
-          transects.append(transect);
-        }
-
-        adjustTransectsToEntryPointLocation(transects, entryPoint);
-
-        //                if (refly) {
-        //                    _optimizeTransectsForShortestDistance(_transects.last().last().coord, transects);
-        //                }
-
-        //                if (_flyAlternateTransectsFact.rawValue().toBool()) {
-        //                    QList<QList<QGeoCoordinate>> alternatingTransects;
-        //                    for (int i=0; i<transects.count(); i++) {
-        //                        if (!(i & 1)) {
-        //                            alternatingTransects.append(transects[i]);
-        //                        }
-        //                    }
-        //                    for (int i=transects.count()-1; i>0; i--) {
-        //                        if (i & 1) {
-        //                            alternatingTransects.append(transects[i]);
-        //                        }
-        //                    }
-        //                    transects = alternatingTransects;
-        //                }
-
-        // Adjust to lawnmower pattern
-        bool reverseVertices = false;
-        for (int i=0; i<transects.count(); i++) {
-          // We must reverse the vertices for every other transect in order to make a lawnmower pattern
-          QList<QGeoCoordinate> transectVertices = transects[i];
-          if (reverseVertices) {
-            reverseVertices = false;
-            QList<QGeoCoordinate> reversedVertices;
-            for (int j=transectVertices.count()-1; j>=0; j--) {
-              reversedVertices.append(transectVertices[j]);
-            }
-            transectVertices = reversedVertices;
-          } else {
-            reverseVertices = true;
-          }
-          transects[i] = transectVertices;
-        }
-
-        // Convert to CoordInfo transects and append to _transects
-        QList<QGeoCoordinate> resultPath;
-        for (QList<QGeoCoordinate>& transect : transects) {
-          //                    QGeoCoordinate                                  coord;
-          //                    QList<TransectStyleComplexItem::CoordInfo_t>    coordInfoTransect;
-          //                    TransectStyleComplexItem::CoordInfo_t           coordInfo;
-
-          //                    coordInfo = { transect[0], CoordTypeSurveyEntry };
-          //                    coordInfoTransect.append(coordInfo);
-          //                    coordInfo = { transect[1], CoordTypeSurveyExit };
-          //                    coordInfoTransect.append(coordInfo);
-
-          //                    // For hover and capture we need points for each camera location within the transect
-          //                    if (triggerCamera() && hoverAndCaptureEnabled()) {
-          //                        double transectLength = transect[0].distanceTo(transect[1]);
-          //                        double transectAzimuth = transect[0].azimuthTo(transect[1]);
-          //                        if (triggerDistance() < transectLength) {
-          //                            int cInnerHoverPoints = static_cast<int>(floor(transectLength / triggerDistance()));
-          //                            qCDebug(SurveyComplexItemLog) << "cInnerHoverPoints" << cInnerHoverPoints;
-          //                            for (int i=0; i<cInnerHoverPoints; i++) {
-          //                                QGeoCoordinate hoverCoord = transect[0].atDistanceAndAzimuth(triggerDistance() * (i + 1), transectAzimuth);
-          //                                TransectStyleComplexItem::CoordInfo_t coordInfo = { hoverCoord, CoordTypeInteriorHoverTrigger };
-          //                                coordInfoTransect.insert(1 + i, coordInfo);
-          //                            }
-          //                        }
-          //                    }
-
-          // Extend the transect ends for turnaround
-          qreal turnAroundDistance = turnAround;
-          if (turnAroundDistance != 0) {
-            qreal azimuth = transect[0].azimuthTo(transect[1]);
-            transect[0] = transect[0].atDistanceAndAzimuth(-turnAroundDistance, azimuth);
-            transect[0].setAltitude(qQNaN());
-            transect[1] = transect[1].atDistanceAndAzimuth(turnAroundDistance, azimuth);
-            transect[1].setAltitude(qQNaN());
-          }
-
-          //                    _transects.append(coordInfoTransect);
-
-          for(auto point : transect)
-            resultPath.append(point);
-        }
-
-        result.setPath(resultPath);
-
+    return ret;
   }
 } // CCL::Traverse
