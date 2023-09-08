@@ -20,7 +20,7 @@ find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS
 
 include_directories(src include)
 
-file(GLOB_RECURSE CCL_CORE src/c++/*)
+file(GLOB_RECURSE CCL_CORE src/*)
 file(GLOB_RECURSE CCL_CORE_INCLUDE include/*)
 
 set(SRC ${CCL_CORE} ${CCL_CORE_INCLUDE})
