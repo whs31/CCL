@@ -14,6 +14,6 @@ namespace CCL
   void registerQml() noexcept
   {
     qmlRegisterModule("CCL.Tiles", 1, 0);
-    
+
   }
 } // CCL
