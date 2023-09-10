@@ -1,4 +1,4 @@
-#include "cclgeomath.h"
+#include "geomath.h"
 #include <cmath>
 #include <QtCore/QPointF>
 #include <QtCore/QDebug>

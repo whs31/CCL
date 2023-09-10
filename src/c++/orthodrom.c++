@@ -1,4 +1,4 @@
-#include "cclorthodrom.h"
+#include "orthodrom.h"
 #include <cmath>
 #include <QtMath>
 
