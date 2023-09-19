@@ -8,6 +8,7 @@
 #include "register.h"
 #include <QtQml/qqml.h>
 #include "CCL/TileLoader"
+#include "CCL/GoogleMapsProvider"
 
 namespace CCL
 {
@@ -15,5 +16,7 @@ namespace CCL
   {
     qmlRegisterModule("CCL.Tiles", 1, 0);
 
+    qmlRegisterModule("CCL.Extras", 1, 0);
+    qmlRegisterType<GoogleMapsProvider>("CCL.Extras", 1, 0, "CCLGoogleMapsProvider");
   }
 } // CCL
