@@ -32,8 +32,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt${QT_VERSION_MAJOR}::Positioning
 )
 
-<<<<<<< Updated upstream
-=======
 if(${CCL_TESTS_ENABLED})
     set(TESTS
         ${SRC}
@@ -52,5 +50,4 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC
   -DM_PI=3.14159265358979323846
 )
 
->>>>>>> Stashed changes
 target_include_directories(${PROJECT_NAME} PUBLIC include src)
